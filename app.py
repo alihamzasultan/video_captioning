@@ -15,7 +15,7 @@ def get_text_y_position(position, text_height, height):
     if position == "top":
         return text_height + 50
     elif position == "center":
-        return (height - text_height) // 2 
+        return (height - text_height) // 2
     elif position == "bottom":
         return (height + text_height) // 2
 
@@ -29,7 +29,7 @@ st.title("Video Captioning Tool")
 choice = st.selectbox("Choose Number of words per frame:", [1, 0], format_func=lambda x: "One word" if x == 1 else "Sentences in each frame")
 position = st.selectbox("Choose text position:", ["top", "center", "bottom"])
 text_color = st.color_picker("Choose text color:", "#FFFFFF")
-highlight_color = st.color_picker("Choose highlight color:", "#FF0000")  # Added highlight color picker
+highlight_color = st.color_picker("Choose highlight color:", "#48FF00")  # Added highlight color picker
 
 # Load fonts
 fonts_dir = "fonts"
@@ -92,10 +92,10 @@ if uploaded_video and 'font_style' in locals():
                 # Function to add typing effect text to each frame using Pillow
                 def add_typing_effect(frame, text, current_time, start_time, duration):
                     if choice == 1:
-                        font_size = 60  # Larger font size for one word at a time
+                        font_size = 30  # Larger font size for one word at a time
                         border_width = 3  # Shadow border width for one word at a time
                     else:
-                        font_size = 30  # Smaller font size for whole sentences
+                        font_size = 15  # Smaller font size for whole sentences
                         border_width = 0  # Reduced shadow border width for sentences
 
                     font_path = os.path.join(custom_fonts_dir, f"{font_style}.ttf")  # Use font from the fonts folder
