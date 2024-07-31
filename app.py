@@ -13,15 +13,11 @@ import shutil
 # Function to map position string to vertical positioning
 def get_text_y_position(position, text_height, height):
     if position == "top":
-        return text_height + 20
-    elif position == "below top":
         return text_height + 50
     elif position == "center":
-        return (height - text_height) // 2
-    elif position == "below center":
-        return (height + text_height) // 2
+        return (height - text_height) // 2 
     elif position == "bottom":
-        return height - text_height - 20
+        return (height + text_height) // 2
 
 # Initialize Whisper model
 model = whisper.load_model("base")
@@ -31,8 +27,9 @@ st.title("Video Captioning Tool")
 
 # User choices
 choice = st.selectbox("Choose Number of words per frame:", [1, 0], format_func=lambda x: "One word" if x == 1 else "Sentences in each frame")
-position = st.selectbox("Choose text position:", ["top", "below top", "center", "below center", "bottom"])
+position = st.selectbox("Choose text position:", ["top", "center", "bottom"])
 text_color = st.color_picker("Choose text color:", "#FFFFFF")
+highlight_color = st.color_picker("Choose highlight color:", "#FF0000")  # Added highlight color picker
 
 # Load fonts
 fonts_dir = "fonts"
@@ -47,7 +44,7 @@ else:
 
 uploaded_video = st.file_uploader("Upload a video file", type=["mp4"])
 
-if uploaded_video:
+if uploaded_video and 'font_style' in locals():
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video_file:
         temp_video_file.write(uploaded_video.getbuffer())
         video_path = temp_video_file.name
@@ -88,12 +85,18 @@ if uploaded_video:
             else:
                 custom_fonts_dir = "fonts"  # Your fonts folder
 
+                # Initialize stop flag
+                if 'stop_processing' not in st.session_state:
+                    st.session_state.stop_processing = False
+
                 # Function to add typing effect text to each frame using Pillow
                 def add_typing_effect(frame, text, current_time, start_time, duration):
                     if choice == 1:
                         font_size = 60  # Larger font size for one word at a time
+                        border_width = 3  # Shadow border width for one word at a time
                     else:
-                        font_size = 20  # Smaller font size for whole sentences
+                        font_size = 30  # Smaller font size for whole sentences
+                        border_width = 0  # Reduced shadow border width for sentences
 
                     font_path = os.path.join(custom_fonts_dir, f"{font_style}.ttf")  # Use font from the fonts folder
                     font = ImageFont.truetype(font_path, font_size)
@@ -102,10 +105,9 @@ if uploaded_video:
                         chunks = text.split()
                     else:
                         words = text.split()
-                        chunks = [' '.join(words[i:i + 6]) for i in range(0, len(words), 6)]
+                        chunks = [' '.join(words[i:i + 4]) for i in range(0, len(words), 4)]  # Split into chunks of 3-4 words
 
                     text_color_rgb = tuple(int(text_color[i:i + 2], 16) for i in (1, 3, 5))
-                    shadow_color = (0, 0, 0)  # Black for shadow
 
                     total_chunks = len(chunks)
                     typing_duration = duration / total_chunks if total_chunks > 0 else duration
@@ -124,16 +126,25 @@ if uploaded_video:
                     text_height = text_bbox[3] - text_bbox[1]
 
                     text_x = (width - text_width) // 2
-
                     text_y = get_text_y_position(position, text_height, height)
 
-                    border_width = 3  # Increase this value for a thicker border
                     for dx in range(-border_width, border_width + 1):
                         for dy in range(-border_width, border_width + 1):
                             if dx != 0 or dy != 0:
-                                draw.text((text_x + dx, text_y + dy), wrapped_text, font=font, fill=shadow_color)
+                                draw.text((text_x + dx, text_y + dy), wrapped_text, font=font, fill=(0, 0, 0))  # Shadow color
 
-                    draw.text((text_x, text_y), wrapped_text, font=font, fill=text_color_rgb)
+                    # Draw each word with possible highlight on the current word
+                    words_in_chunk = visible_text.split()
+                    word_elapsed_time = elapsed_time % typing_duration
+                    word_duration = typing_duration / len(words_in_chunk) if words_in_chunk else typing_duration
+                    word_index = min(max(0, int(word_elapsed_time / word_duration)), len(words_in_chunk) - 1)
+
+                    current_x = text_x
+                    for i, word in enumerate(words_in_chunk):
+                        word_color = highlight_color if i == word_index else text_color_rgb
+                        draw.text((current_x, text_y), word, font=font, fill=word_color)
+                        word_bbox = draw.textbbox((current_x, text_y), word, font=font)
+                        current_x += word_bbox[2] - word_bbox[0] + font_size // 2  # Adding space between words
 
                     frame = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
                     return frame
@@ -148,7 +159,15 @@ if uploaded_video:
                 progress_bar = st.progress(0)
                 progress_text = st.empty()
 
+                stop_button = st.button("Stop Processing")  # Added stop button
+                if stop_button:
+                    st.session_state.stop_processing = True
+
                 for frame_number in tqdm(range(total_frames), desc="Processing frames"):
+                    if st.session_state.stop_processing:
+                        st.warning("Processing stopped by user.")
+                        break
+                    
                     ret, frame = cap.read()
                     if not ret:
                         break
@@ -168,24 +187,28 @@ if uploaded_video:
                 cap.release()
                 out.release()
 
-                st.info("Finalizing the video, please wait...")
+                if not st.session_state.stop_processing:
+                    st.info("Finalizing the video, please wait...")
 
-                final_output_path = os.path.join(output_dir, "final_output.mp4")
-                subprocess.run([
-                    'ffmpeg', '-i', output_path, '-i', video_path, '-c:v', 'libx264', '-crf', '23', '-preset', 'slow', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', final_output_path
-                ], check=True)
+                    final_output_path = os.path.join(output_dir, "final_output.mp4")
+                    subprocess.run([
+                        'ffmpeg', '-i', output_path, '-i', video_path, '-c:v', 'libx264', '-crf', '23', '-preset', 'slow', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', final_output_path
+                    ], check=True)
 
-                os.remove(audio_path)
-                os.remove(output_path)
+                    os.remove(audio_path)
+                    os.remove(output_path)
 
-                st.success("Video processing complete!")
+                    st.success("Video processing complete!")
 
-                with open(final_output_path, "rb") as file:
-                    btn = st.download_button(
-                        label="Download Processed Video",
-                        data=file,
-                        file_name="final_output.mp4",
-                        mime="video/mp4"
-                    )
+                    with open(final_output_path, "rb") as file:
+                        btn = st.download_button(
+                            label="Download Processed Video",
+                            data=file,
+                            file_name="final_output.mp4",
+                            mime="video/mp4"
+                        )
 
                 shutil.rmtree(output_dir)
+
+                # Reset stop flag after processing
+                st.session_state.stop_processing = False
