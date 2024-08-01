@@ -9,6 +9,12 @@ import textwrap
 import streamlit as st
 import tempfile
 import shutil
+# Add Google AdSense script
+adsense_script = """
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3309668602159924"
+     crossorigin="anonymous"></script>
+"""
+st.markdown(adsense_script, unsafe_allow_html=True)
 
 # Function to map position string to vertical positioning
 def get_text_y_position(position, text_height, height):
