@@ -31,6 +31,7 @@ position = st.selectbox("Choose text position:", ["top", "center", "bottom"])
 text_color = st.color_picker("Choose text color:", "#FFFFFF")
 highlight_color = st.color_picker("Choose highlight color:", "#48FF00")  # Added highlight color picker
 
+
 # Load fonts
 fonts_dir = "fonts"
 if not os.path.exists(fonts_dir):
@@ -41,6 +42,22 @@ else:
         st.error("No .ttf font files found in the fonts directory.")
     else:
         font_style = st.selectbox("Choose font style:", [f[:-4] for f in font_files])
+
+# Preview text box
+if 'font_style' in locals():
+    sample_text = "Selected Font"
+    font_size = 30  # Adjust as necessary
+    font_path = os.path.join(fonts_dir, f"{font_style}.ttf")
+    font = ImageFont.truetype(font_path, font_size)
+
+    # Create an image with sample text
+    preview_image = Image.new("RGB", (800, 100), "black")
+    draw = ImageDraw.Draw(preview_image)
+    text_color_rgb = tuple(int(text_color[i:i + 2], 16) for i in (1, 3, 5))
+    draw.text((10, 10), sample_text, font=font, fill=text_color_rgb)
+
+    # Display the image
+    st.image(preview_image, caption=f"Font: {font_style}")
 
 uploaded_video = st.file_uploader("Upload a video file", type=["mp4"])
 
