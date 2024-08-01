@@ -46,7 +46,7 @@ else:
 # Preview text box
 if 'font_style' in locals():
     sample_text = "Selected Font"
-    font_size = 30  # Adjust as necessary
+    font_size = 45  # Adjust as necessary
     font_path = os.path.join(fonts_dir, f"{font_style}.ttf")
     font = ImageFont.truetype(font_path, font_size)
 
