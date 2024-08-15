@@ -9,11 +9,7 @@ import textwrap
 import streamlit as st
 import tempfile
 import shutil
-# Add Google AdSense script
-adsense_meta = """
-<meta name="google-adsense-account" content="ca-pub-3309668602159924">
-"""
-st.markdown(adsense_meta, unsafe_allow_html=True) 
+
 
 # Function to map position string to vertical positioning
 def get_text_y_position(position, text_height, height):
@@ -29,6 +25,8 @@ model = whisper.load_model("base")
 
 # Streamlit app layout
 st.title("Video Captioning Tool")
+
+
 
 # User choices
 choice = st.selectbox("Choose Number of words per frame:", [1, 0], format_func=lambda x: "One word" if x == 1 else "Sentences in each frame")
@@ -234,3 +232,34 @@ if uploaded_video and 'font_style' in locals():
 
                 # Reset stop flag after processing
                 st.session_state.stop_processing = False
+
+                
+
+# Custom donation button styled using markdown
+if st.markdown(
+    """
+    <a href="https://bymecoffee.vercel.app/" target="_blank" style="display: inline-block; 
+    padding: 10px 20px; color: white; background-color: #FF7F50; border-radius: 5px; 
+    text-align: center; text-decoration: none; font-size: 16px;">Buy Me a Coffee</a>
+    """,
+    unsafe_allow_html=True
+):
+    pass
+
+# Display images demonstrating how the app works
+st.header("100% Free Ai Tool")
+
+# Path to your images directory
+images_dir = "images"
+
+# Ensure the directory exists
+if os.path.exists(images_dir):
+    image_files = [f for f in os.listdir(images_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
+    if image_files:
+        for image_file in image_files:
+            image_path = os.path.join(images_dir, image_file)
+            st.image(image_path, caption=image_file, use_column_width=True)
+    else:
+        st.warning("No image files found in the 'images' directory.")
+else:
+    st.error(f"Images directory '{images_dir}' does not exist.")
