@@ -9,6 +9,39 @@ import textwrap
 import streamlit as st
 import tempfile
 import shutil
+import json
+import os
+
+# Function to load the visitor count from a JSON file
+def load_visitor_count(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, "r") as file:
+            return json.load(file).get("visitor_count", 0)
+    return 0
+
+# Function to save the visitor count to a JSON file
+def save_visitor_count(file_path, count):
+    with open(file_path, "w") as file:
+        json.dump({"visitor_count": count}, file)
+
+# File path for the visitor count
+count_file_path = "visitor_count.json"
+
+# Load the current visitor count
+if 'visitor_count' not in st.session_state:
+    st.session_state.visitor_count = load_visitor_count(count_file_path)
+
+# Increment visitor count
+st.session_state.visitor_count += 1
+
+# Save the updated visitor count
+save_visitor_count(count_file_path, st.session_state.visitor_count)
+
+# Display visitor count
+st.sidebar.markdown(f"**Total Visitor Count:** {st.session_state.visitor_count}")
+
+# Your existing code...
+
 
 
 # Function to map position string to vertical positioning
