@@ -43,7 +43,6 @@ st.sidebar.markdown(f"**Total Visitor Count:** {st.session_state.visitor_count}"
 # Your existing code...
 
 
-
 # Function to map position string to vertical positioning
 def get_text_y_position(position, text_height, height):
     if position == "top":
@@ -79,10 +78,22 @@ else:
     else:
         font_style = st.selectbox("Choose font style:", [f[:-4] for f in font_files])
 
+
+
+
 # Preview text box
 if 'font_style' in locals():
+    # Font size selection
+    font_size_option = st.selectbox("Choose font size:", ["Small", "Medium", "Large"])
+
+    # Map selected font size to actual size
+    font_size_map = {
+    "Small": 40,
+    "Medium": 45,
+    "Large": 55
+}
+    font_size = font_size_map[font_size_option]
     sample_text = "Selected Font"
-    font_size = 50  # Adjust as necessary
     font_path = os.path.join(fonts_dir, f"{font_style}.ttf")
     font = ImageFont.truetype(font_path, font_size)
 
@@ -266,33 +277,79 @@ if uploaded_video and 'font_style' in locals():
                 # Reset stop flag after processing
                 st.session_state.stop_processing = False
 
-                
+# Function to load feedback from a JSON file
+def load_feedback(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, "r") as file:
+            return json.load(file).get("feedback", [])
+    return []
 
-# Custom donation button styled using markdown
-if st.markdown(
+# Function to save feedback to a JSON file
+def save_feedback(file_path, feedback_list):
+    with open(file_path, "w") as file:
+        json.dump({"feedback": feedback_list}, file, indent=4)
+
+# File path for the feedback
+feedback_file_path = "feedback.json"
+
+# Load existing feedback
+feedback_list = load_feedback(feedback_file_path)
+
+# Feedback section
+st.header("Send Us Your Feedback")
+user_feedback = st.text_area("Your Feedback", placeholder="Type your feedback here...")
+
+if st.button("Submit Feedback"):
+    if user_feedback:
+        feedback_list.append(user_feedback)
+        save_feedback(feedback_file_path, feedback_list)
+        st.success("Thank you for your feedback!")
+    else:
+        st.warning("Please enter some feedback before submitting.")
+
+# Sidebar section to view feedback (Admin Only)
+st.sidebar.header("Admin Section")
+
+# Password input for admin access
+admin_password = st.sidebar.text_input("Enter password to view feedback:", type="password")
+
+# Define your password here
+correct_password = "03339362758"
+
+if admin_password == correct_password:
+    st.sidebar.success("Access granted.")
+    
+    if feedback_list:
+        st.sidebar.write("### All Feedback:")
+        for feedback in feedback_list:
+            st.sidebar.write(f"- {feedback}")
+    else:
+        st.sidebar.write("No feedback available.")
+else:
+    if admin_password:
+        st.sidebar.error("Access denied.")
+
+
+
+# Custom donation button styled using markdown (Sticky, yellow color, bold font)
+st.markdown(
     """
-    <a href="https://bymecoffee.vercel.app/" target="_blank" style="display: inline-block; 
-    padding: 10px 20px; color: white; background-color: #FF7F50; border-radius: 5px; 
-    text-align: center; text-decoration: none; font-size: 16px;">Buy Me a Coffee</a>
+    <style>
+    .sticky-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 100;
+    }
+    .bold-button {
+        font-weight: bold;
+    }
+    </style>
+    <div class="sticky-button">
+        <a href="https://bymecoffee.vercel.app/" target="_blank" class="bold-button" style="display: inline-block; 
+        padding: 10px 20px; color: black; background-color: #FFD700; border-radius: 5px; 
+        text-align: center; text-decoration: none; font-size: 20px;">Buy Me a Coffee</a>
+    </div>
     """,
     unsafe_allow_html=True
-):
-    pass
-
-# Display images demonstrating how the app works
-st.header("100% Free Ai Tool")
-
-# Path to your images directory
-images_dir = "images"
-
-# Ensure the directory exists
-if os.path.exists(images_dir):
-    image_files = [f for f in os.listdir(images_dir) if f.endswith(('.png', '.jpg', '.jpeg'))]
-    if image_files:
-        for image_file in image_files:
-            image_path = os.path.join(images_dir, image_file)
-            st.image(image_path, caption=image_file, use_column_width=True)
-    else:
-        st.warning("No image files found in the 'images' directory.")
-else:
-    st.error(f"Images directory '{images_dir}' does not exist.")
+)
