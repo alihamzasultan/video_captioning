@@ -347,7 +347,7 @@ st.markdown(
     </style>
     <div class="sticky-button">
         <a href="https://bymecoffee.vercel.app/" target="_blank" class="bold-button" style="display: inline-block; 
-        padding: 10px 20px; color: black; background-color: #FFD700; border-radius: 5px; 
+        padding: 10px 20px; color: black; background-color: #FFD700; border-radius: 5px; margin-bottom: 40px;
         text-align: center; text-decoration: none; font-size: 20px;">Buy Me a Coffee</a>
     </div>
     """,
