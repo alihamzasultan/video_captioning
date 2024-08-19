@@ -50,7 +50,7 @@ def get_text_y_position(position, text_height, height):
     elif position == "center":
         return (height - text_height) // 2
     elif position == "bottom":
-        return (height + text_height) // 2
+        return height - text_height - 50
 
 # Initialize Whisper model
 model = whisper.load_model("base")
@@ -331,25 +331,23 @@ else:
 
 
 
-# Custom donation button styled using markdown (Sticky, yellow color, bold font)
+from streamlit.components.v1 import html
+
+button = """
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="alihamzasultan6" data-color="#FFDD00" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
+"""
+
+html(button, height=70, width=220)
+
 st.markdown(
     """
     <style>
-    .sticky-button {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 100;
-    }
-    .bold-button {
-        font-weight: bold;
-    }
+        iframe[width="220"] {
+            position: fixed;
+            bottom: 60px;
+            right: 40px;
+        }
     </style>
-    <div class="sticky-button">
-        <a href="https://bymecoffee.vercel.app/" target="_blank" class="bold-button" style="display: inline-block; 
-        padding: 10px 20px; color: black; background-color: #FFD700; border-radius: 5px; margin-bottom: 40px;
-        text-align: center; text-decoration: none; font-size: 20px;">Buy Me a Coffee</a>
-    </div>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
