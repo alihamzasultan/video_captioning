@@ -9,38 +9,9 @@ import textwrap
 import streamlit as st
 import tempfile
 import shutil
-import json
 import os
+import streamlit as st
 
-# Function to load the visitor count from a JSON file
-def load_visitor_count(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, "r") as file:
-            return json.load(file).get("visitor_count", 0)
-    return 0
-
-# Function to save the visitor count to a JSON file
-def save_visitor_count(file_path, count):
-    with open(file_path, "w") as file:
-        json.dump({"visitor_count": count}, file)
-
-# File path for the visitor count
-count_file_path = "visitor_count.json"
-
-# Load the current visitor count
-if 'visitor_count' not in st.session_state:
-    st.session_state.visitor_count = load_visitor_count(count_file_path)
-
-# Increment visitor count
-st.session_state.visitor_count += 1
-
-# Save the updated visitor count
-save_visitor_count(count_file_path, st.session_state.visitor_count)
-
-# Display visitor count
-st.sidebar.markdown(f"**Total Visitor Count:** {st.session_state.visitor_count}")
-
-# Your existing code...
 
 
 # Function to map position string to vertical positioning
@@ -55,16 +26,19 @@ def get_text_y_position(position, text_height, height):
 # Initialize Whisper model
 model = whisper.load_model("base")
 
+
+
+
+
 # Streamlit app layout
 st.title("Video Captioning Tool")
 
-
-
-# User choices
 choice = st.selectbox("Choose Number of words per frame:", [1, 0], format_func=lambda x: "One word" if x == 1 else "Sentences in each frame")
 position = st.selectbox("Choose text position:", ["top", "center", "bottom"])
 text_color = st.color_picker("Choose text color:", "#FFFFFF")
-highlight_color = st.color_picker("Choose highlight color:", "#48FF00")  # Added highlight color picker
+
+highlight_color_rgb = "#ffFFff"  # Hardcoded highlight color
+
 
 
 # Load fonts
@@ -113,222 +87,386 @@ if uploaded_video and 'font_style' in locals():
         temp_video_file.write(uploaded_video.getbuffer())
         video_path = temp_video_file.name
 
+# Show "Start Processing" button only if the payment is successful
+
     if st.button("Start Processing"):
-        output_dir = tempfile.mkdtemp()
-        output_path = os.path.join(output_dir, "captioned_video.mp4")
-        audio_path = os.path.join(output_dir, "temp_audio.wav")
+        st.write("Processing your video...")
+        if choice == 1:
+                    output_dir = tempfile.mkdtemp()
+                    output_path = os.path.join(output_dir, "captioned_video.mp4")
+                    audio_path = os.path.join(output_dir, "temp_audio.wav")
 
-        # Load video
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            st.error("Error: Unable to open video file.")
-        else:
-            # Get video properties
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                    # Load video
+                    cap = cv2.VideoCapture(video_path)
+                    if not cap.isOpened():
+                        st.error("Error: Unable to open video file.")
+                    else:
+                        # Get video properties
+                        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                        fps = cap.get(cv2.CAP_PROP_FPS)
+                        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-            # Extract audio
-            st.info("Extracting audio...")
-            subprocess.run([
-                'ffmpeg', '-i', video_path, '-q:a', '0', '-map', 'a', audio_path
-            ], check=True)
+                        # Extract audio
+                        st.info("Extracting audio...")
+                        subprocess.run([
+                            'ffmpeg', '-i', video_path, '-q:a', '0', '-map', 'a', audio_path
+                        ], check=True)
 
-            # Transcribe audio with Whisper
-            st.info("Transcribing audio...")
-            result = model.transcribe(audio_path)
+                        # Transcribe audio with Whisper
+                        st.info("Transcribing audio...")
+                        result = model.transcribe(audio_path)
 
-            # Check if the detected language is English
-            if result['language'] != 'en':
-                st.error("The detected language is not English. Terminating the process.")
-                os.remove(audio_path)
-                cap.release()
-                out.release()
-            else:
-                custom_fonts_dir = "fonts"  # Your fonts folder
+                        # Check if the detected language is English
+                        if result['language'] != 'en':
+                            st.error("The detected language is not English. Terminating the process.")
+                            os.remove(audio_path)
+                            cap.release()
+                            out.release()
+                        else:
+                            custom_fonts_dir = "fonts"  # Your fonts folder
 
-                # Initialize stop flag
-                if 'stop_processing' not in st.session_state:
+                            # Initialize stop flag
+                            if 'stop_processing' not in st.session_state:
+                                st.session_state.stop_processing = False
+
+                            # Function to add typing effect text to each frame using Pillow
+                            def add_typing_effect(frame, words, current_time):
+                                font_size = 30  # Adjust font size as needed
+                                border_width = 3  # Shadow border width
+
+                                font_path = os.path.join(custom_fonts_dir, f"{font_style}.ttf")  # Use selected font
+                                font = ImageFont.truetype(font_path, font_size)
+
+                                text_color_rgb = tuple(int(text_color[i:i + 2], 16) for i in (1, 3, 5))
+
+                                visible_text = ''
+                                for word, start_time, end_time in words:
+                                    if start_time <= current_time <= end_time:
+                                        visible_text += f"{word} "
+                                
+                                wrapped_text = textwrap.fill(visible_text.strip(), width=40)
+                                
+                                pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                                draw = ImageDraw.Draw(pil_image)
+
+                                text_bbox = draw.textbbox((0, 0), wrapped_text, font=font)
+                                text_width = text_bbox[2] - text_bbox[0]
+                                text_height = text_bbox[3] - text_bbox[1]
+
+                                text_x = (width - text_width) // 2
+                                text_y = get_text_y_position(position, text_height, height)
+
+                                for dx in range(-border_width, border_width + 1):
+                                    for dy in range(-border_width, border_width + 1):
+                                        if dx != 0 or dy != 0:
+                                            draw.text((text_x + dx, text_y + dy), wrapped_text, font=font, fill=(0, 0, 0))  # Shadow color
+
+                                draw.text((text_x, text_y), wrapped_text, font=font, fill=text_color_rgb)
+
+                                frame = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+                                return frame
+
+                            # Modified transcription process to include word-level timestamps
+                            st.info("Transcribing audio with word-level timestamps...")
+                            result = model.transcribe(audio_path, word_timestamps=True)
+                            progress_bar = st.progress(0)
+                            progress_text = st.empty()
+                            # Extract words with their corresponding timestamps
+                            words_with_timestamps = []
+                            for segment in result['segments']:
+                                for word in segment['words']:
+                                    words_with_timestamps.append((word['word'], word['start'], word['end']))
+
+                            # Processing the video frames
+                            frame_number = 0
+                            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+                            for frame_number in tqdm(range(total_frames), desc="Processing frames"):
+                                if st.session_state.stop_processing:
+                                    st.warning("Processing stopped by user.")
+                                    break
+                                
+                                ret, frame = cap.read()
+                                if not ret:
+                                    break
+
+                                current_time = frame_number / fps
+
+                                # Render the words that are within the current timestamp
+                                frame = add_typing_effect(frame, words_with_timestamps, current_time)
+
+                                out.write(frame)
+                                frame_number += 1
+                                progress_bar.progress(frame_number / total_frames)
+                                progress_text.text(f"Processing frame {frame_number}/{total_frames}")
+
+                            cap.release()
+                            out.release()
+
+                    if not st.session_state.stop_processing:
+                        st.info("Finalizing the video, please wait...")
+
+                        final_output_path = os.path.join(output_dir, "final_output.mp4")
+                        subprocess.run([
+                            'ffmpeg', '-i', output_path, '-i', video_path, '-c:v', 'libx264', '-crf', '23', '-preset', 'slow', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', final_output_path
+                        ], check=True)
+
+                        os.remove(audio_path)
+                        os.remove(output_path)
+
+                        st.success("Video processing complete!")
+
+                        with open(final_output_path, "rb") as file:
+                            btn = st.download_button(
+                                label="Download Processed Video",
+                                data=file,
+                                file_name="final_output.mp4",
+                                mime="video/mp4"
+                            )
+
+                    shutil.rmtree(output_dir)
+
+                    # Reset stop flag after processing
                     st.session_state.stop_processing = False
 
-                # Function to add typing effect text to each frame using Pillow
-                def add_typing_effect(frame, text, current_time, start_time, duration):
-                    if choice == 1:
-                        font_size = 30  # Larger font size for one word at a time
-                        border_width = 3  # Shadow border width for one word at a time
+
+        if choice == 0:  # Sentences in each frame
+                    output_dir = tempfile.mkdtemp()
+                    output_path = os.path.join(output_dir, "captioned_video.mp4")
+                    audio_path = os.path.join(output_dir, "temp_audio.wav")
+
+                    # Load video
+                    cap = cv2.VideoCapture(video_path)
+                    if not cap.isOpened():
+                        st.error("Error: Unable to open video file.")
                     else:
-                        font_size = 15  # Smaller font size for whole sentences
-                        border_width = 0  # Reduced shadow border width for sentences
+                        # Get video properties
+                        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                        fps = cap.get(cv2.CAP_PROP_FPS)
+                        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-                    font_path = os.path.join(custom_fonts_dir, f"{font_style}.ttf")  # Use font from the fonts folder
-                    font = ImageFont.truetype(font_path, font_size)
+                        # Extract audio
+                        st.info("Extracting audio...")
+                        subprocess.run([
+                            'ffmpeg', '-i', video_path, '-q:a', '0', '-map', 'a', audio_path
+                        ], check=True)
 
-                    if choice == 1:
-                        chunks = text.split()
-                    else:
-                        words = text.split()
-                        chunks = [' '.join(words[i:i + 4]) for i in range(0, len(words), 4)]  # Split into chunks of 3-4 words
+                        # Transcribe audio with Whisper
+                        st.info("Transcribing audio...")
+                        result = model.transcribe(audio_path, word_timestamps=True)
 
-                    text_color_rgb = tuple(int(text_color[i:i + 2], 16) for i in (1, 3, 5))
+                        # Check if the detected language is English
+                        if result['language'] != 'en':
+                            st.error("The detected language is not English. Terminating the process.")
+                            os.remove(audio_path)
+                            cap.release()
+                            out.release()
+                        else:
+                            custom_fonts_dir = "fonts"  # Your fonts folder
 
-                    total_chunks = len(chunks)
-                    typing_duration = duration / total_chunks if total_chunks > 0 else duration
+                            # Initialize stop flag
+                            if 'stop_processing' not in st.session_state:
+                                st.session_state.stop_processing = False
 
-                    elapsed_time = current_time - start_time
-                    chunk_index = min(max(0, int(elapsed_time / typing_duration)), total_chunks - 1)
-                    visible_text = chunks[chunk_index] if total_chunks > 0 else ""
+                    st.info("Transcribing audio with sentence-level timestamps...")
+                    progress_bar = st.progress(0)
+                    progress_text = st.empty()
 
-                    wrapped_text = textwrap.fill(visible_text, width=40)
+                    # Extract sentences with their corresponding timestamps
+                    sentences_with_timestamps = [(segment['text'], segment['start'], segment['end'], segment['words']) for segment in result['segments']]
 
-                    pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                    draw = ImageDraw.Draw(pil_image)
+                    # Create font object
+                    font_path = os.path.join(custom_fonts_dir, f"{font_style}.ttf")
+                    font = ImageFont.truetype(font_path, 30)  # Adjust font size if needed
 
-                    text_bbox = draw.textbbox((0, 0), wrapped_text, font=font)
-                    text_width = text_bbox[2] - text_bbox[0]
-                    text_height = text_bbox[3] - text_bbox[1]
+                    # Processing the video frames
+                    frame_number = 0
+                    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-                    text_x = (width - text_width) // 2
-                    text_y = get_text_y_position(position, text_height, height)
-
-                    for dx in range(-border_width, border_width + 1):
-                        for dy in range(-border_width, border_width + 1):
-                            if dx != 0 or dy != 0:
-                                draw.text((text_x + dx, text_y + dy), wrapped_text, font=font, fill=(0, 0, 0))  # Shadow color
-
-                    # Draw each word with possible highlight on the current word
-                    words_in_chunk = visible_text.split()
-                    word_elapsed_time = elapsed_time % typing_duration
-                    word_duration = typing_duration / len(words_in_chunk) if words_in_chunk else typing_duration
-                    word_index = min(max(0, int(word_elapsed_time / word_duration)), len(words_in_chunk) - 1)
-
-                    current_x = text_x
-                    for i, word in enumerate(words_in_chunk):
-                        word_color = highlight_color if i == word_index else text_color_rgb
-                        draw.text((current_x, text_y), word, font=font, fill=word_color)
-                        word_bbox = draw.textbbox((current_x, text_y), word, font=font)
-                        current_x += word_bbox[2] - word_bbox[0] + font_size // 2  # Adding space between words
-
-                    frame = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-                    return frame
-
-                sentences = []
-                for segment in result['segments']:
-                    sentences.append((segment['start'], segment['end'], segment['text']))
-
-                frame_number = 0
-                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-                progress_bar = st.progress(0)
-                progress_text = st.empty()
-
-                stop_button = st.button("Stop Processing")  # Added stop button
-                if stop_button:
-                    st.session_state.stop_processing = True
-
-                for frame_number in tqdm(range(total_frames), desc="Processing frames"):
-                    if st.session_state.stop_processing:
-                        st.warning("Processing stopped by user.")
-                        break
-                    
-                    ret, frame = cap.read()
-                    if not ret:
-                        break
-
-                    current_time = frame_number / fps
-
-                    for start_time, end_time, sentence in sentences:
-                        if start_time <= current_time <= end_time:
-                            frame = add_typing_effect(frame, sentence, current_time, start_time, end_time - start_time)
+                    for frame_number in tqdm(range(total_frames), desc="Processing frames"):
+                        if st.session_state.stop_processing:
+                            st.warning("Processing stopped by user.")
                             break
 
-                    out.write(frame)
-                    frame_number += 1
-                    progress_bar.progress(frame_number / total_frames)
-                    progress_text.text(f"Processing frame {frame_number}/{total_frames}")
+                        ret, frame = cap.read()
+                        if not ret:
+                            break
 
-                cap.release()
-                out.release()
+                        current_time = frame_number / fps
 
-                if not st.session_state.stop_processing:
-                    st.info("Finalizing the video, please wait...")
+                        # Convert frame to PIL Image for text overlay
+                        pil_img = Image.fromarray(frame)
+                        draw = ImageDraw.Draw(pil_img)
 
-                    final_output_path = os.path.join(output_dir, "final_output.mp4")
-                    subprocess.run([
-                        'ffmpeg', '-i', output_path, '-i', video_path, '-c:v', 'libx264', '-crf', '23', '-preset', 'slow', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', final_output_path
-                    ], check=True)
+                        # Add sentences to the frame based on the timestamp
+                        for sentence, start_time, end_time, words in sentences_with_timestamps:
+                            if start_time <= current_time <= end_time:
+                                # Split sentence into chunks of 4 words and display all chunks within the timestamp
+                                sentence_words = sentence.split()
+                                num_chunks = (len(sentence_words) + 3) // 4  # Calculate number of chunks
 
-                    os.remove(audio_path)
-                    os.remove(output_path)
+                                # Determine which chunks to display based on the current time
+                                chunk_index = int((current_time - start_time) / (end_time - start_time) * num_chunks)
+                                chunk_index = min(chunk_index, num_chunks - 1)  # Ensure index is within bounds
+                                current_chunk = sentence_words[chunk_index * 4:(chunk_index + 1) * 4]
 
-                    st.success("Video processing complete!")
+                                text = ' '.join(current_chunk)
+                                text_bbox = draw.textbbox((0, 0), text, font=font)
+                                text_width = text_bbox[2] - text_bbox[0]
+                                text_height = text_bbox[3] - text_bbox[1]
+                                x_position = (width - text_width) // 2  # Center text horizontally
+                                y_position = height - text_height - 20  # Position from bottom
 
-                    with open(final_output_path, "rb") as file:
-                        btn = st.download_button(
-                            label="Download Processed Video",
-                            data=file,
-                            file_name="final_output.mp4",
-                            mime="video/mp4"
-                        )
+                                # Draw each word in the chunk with proper highlighting
+                                x_position = (width - text_width) // 2  # Recalculate x_position for center alignment
+                                for word in current_chunk:
+                                    word_bbox = draw.textbbox((0, 0), word, font=font)
+                                    word_width = word_bbox[2] - word_bbox[0]
+                                    word_height = word_bbox[3] - word_bbox[1]
 
-                shutil.rmtree(output_dir)
+                                    # Determine the highlight color for the current word
+                                    word_start_time = next((w['start'] for w in words if w['word'] == word), None)
+                                    word_end_time = next((w['end'] for w in words if w['word'] == word), None)
 
-                # Reset stop flag after processing
-                st.session_state.stop_processing = False
+                                    color = highlight_color_rgb if word_start_time and word_end_time and word_start_time <= current_time <= word_end_time else text_color
 
-# Function to load feedback from a JSON file
-def load_feedback(file_path):
-    if os.path.exists(file_path):
-        with open(file_path, "r") as file:
-            return json.load(file).get("feedback", [])
-    return []
+                                    # Draw the text
+                                    draw.text((x_position, y_position), word, font=font, fill=color)
+                                    x_position += word_width + 5  # Adjust space between words if needed
 
-# Function to save feedback to a JSON file
-def save_feedback(file_path, feedback_list):
-    with open(file_path, "w") as file:
-        json.dump({"feedback": feedback_list}, file, indent=4)
+                                break  # Only show the first sentence for the current frame
 
-# File path for the feedback
-feedback_file_path = "feedback.json"
+                        frame = np.array(pil_img)
+                        out.write(frame)
+                        frame_number += 1
+                        progress_bar.progress(frame_number / total_frames)
+                        progress_text.text(f"Processing frame {frame_number}/{total_frames}")
 
-# Load existing feedback
-feedback_list = load_feedback(feedback_file_path)
+                    cap.release()
+                    out.release()
 
-# Feedback section
-st.header("Send Us Your Feedback")
-user_feedback = st.text_area("Your Feedback", placeholder="Type your feedback here...")
+                    if not st.session_state.stop_processing:
+                        st.info("Finalizing the video, please wait...")
 
-if st.button("Submit Feedback"):
-    if user_feedback:
-        feedback_list.append(user_feedback)
-        save_feedback(feedback_file_path, feedback_list)
-        st.success("Thank you for your feedback!")
-    else:
-        st.warning("Please enter some feedback before submitting.")
+                        final_output_path = os.path.join(output_dir, "final_output.mp4")
+                        subprocess.run([
+                            'ffmpeg', '-i', output_path, '-i', video_path, '-c:v', 'libx264', '-crf', '23', '-preset', 'slow', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', final_output_path
+                        ], check=True)
 
-# Sidebar section to view feedback (Admin Only)
-st.sidebar.header("Admin Section")
+                        os.remove(audio_path)
+                        os.remove(output_path)
 
-# Password input for admin access
-admin_password = st.sidebar.text_input("Enter password to view feedback:", type="password")
+                        st.success("Video processing complete!")
 
-# Define your password here
-correct_password = "03339362758"
+                        with open(final_output_path, "rb") as file:
+                            btn = st.download_button(
+                                label="Download Processed Video",
+                                data=file,
+                                file_name="final_output.mp4",
+                                mime="video/mp4"
+                            )
 
-if admin_password == correct_password:
-    st.sidebar.success("Access granted.")
+                        shutil.rmtree(output_dir)
+
+                        # Reset stop flag after processing
+                        st.session_state.stop_processing = False
+
+st.markdown(
+    """
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    """,
+    unsafe_allow_html=True
+)
+
+# Example Output Section
+st.markdown("## Product Example Output")
+
+# Button to show the example output
+if st.button("View Example Output"):
+    # Example output can be an image, video, or any other media
+    st.markdown("### Example Video")
     
-    if feedback_list:
-        st.sidebar.write("### All Feedback:")
-        for feedback in feedback_list:
-            st.sidebar.write(f"- {feedback}")
-    else:
-        st.sidebar.write("No feedback available.")
-else:
-    if admin_password:
-        st.sidebar.error("Access denied.")
+    # You can embed a video from YouTube or display a locally stored video
+    st.video("https://www.youtube.com/watch?v=1IGDQIdnhdM")  # Replace with your example video URL
 
+st.markdown(
+    """
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    """,
+    unsafe_allow_html=True
+)
+
+# Footer with social links and icons, adapted for light and dark modes
+footer = """
+    <style>
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 -1px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Light mode styles */
+        @media (prefers-color-scheme: light) {
+            footer {
+                background-color: #f1f1f1;
+                color: #333;
+            }
+            footer a {
+                color: #333;
+            }
+            footer a:hover {
+                color: #555;
+            }
+        }
+
+        /* Dark mode styles */
+        @media (prefers-color-scheme: dark) {
+            footer {
+                background-color: #333;
+                color: #f1f1f1;
+            }
+            footer a {
+                color: #f1f1f1;
+            }
+            footer a:hover {
+                color: #bbb;
+            }
+        }
+
+        footer i {
+            font-size: 24px;
+            margin: 0 10px;
+        }
+
+        footer p {
+            margin: 5px 0;
+        }
+    </style>
+    <footer>
+        <p>Contact us on:</p>
+        <a href="https://github.com/alihamzasultan" target="_blank">
+            <i class="fab fa-github"></i>
+        </a>
+        <a href="https://www.linkedin.com/in/ali-hamza-sultan-1ba7ba267/" target="_blank">
+            <i class="fab fa-linkedin"></i>
+        </a>
+        <a href="https://www.youtube.com/channel/UCB3Cxjm-cCwV0Rn3WmKHF_A" target="_blank">
+            <i class="fab fa-youtube"></i>
+        </a>
+        <p>&copy; 2024 Ali Hamza Sultan</p>
+    </footer>
+"""
+
+st.markdown(footer, unsafe_allow_html=True)
 
 
 from streamlit.components.v1 import html
