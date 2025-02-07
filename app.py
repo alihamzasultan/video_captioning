@@ -121,7 +121,8 @@ def add_captions(frame, sentences, current_time, width, height, font, text_color
     # Overlay the blurred background on the original image
     pil_image = Image.alpha_composite(pil_image.convert("RGBA"), blurred_background)
 
-    # Analyze the visible text with spaCy to identify catchy words
+    # Analyze the visible text with spaCy to identify catchy words.
+    nlp = spacy.load("en_core_web_sm")
     doc = nlp(visible_text)
     catchy_words = {token.text for token in doc if token.pos_ in {"PROPN"}}
 
