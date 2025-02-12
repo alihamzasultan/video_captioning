@@ -46,15 +46,12 @@ def get_active_word_index(chunk_words, current_time, word_timestamps):
             return i
     return -1  # No active word if time doesn't match any
 
-import spacy
 import subprocess
 
 # Ensure the model is installed
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
+import spacy
+nlp = spacy.load("en_core_web_sm", disable=["parser", "ner"])  # Load with minimal components
+
 # # Load spaCy English model
 # nlp = spacy.load("en_core_web_sm")
 def add_captions(frame, sentences, current_time, width, height, font, text_color, highlight_color, position, catchy_word_color="#FFFF00", border_color="#000000", border_thickness=2, background_blur_radius=10, fade_duration=1.0):
