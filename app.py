@@ -14,7 +14,7 @@ import spacy
 
 
 
-# Set page configuration with sidebar collapsed by default
+# Set page configuration with sidebar collapsed bydefault
 st.set_page_config(
     page_title="Video Caption AI",
     page_icon="🎥",
